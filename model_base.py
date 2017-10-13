@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 class ModelBase(object):
     def __init__(self):
         self.inputs = list()
@@ -7,6 +9,7 @@ class ModelBase(object):
         self.param_by_lr_ = dict()
         self.update_ops_ = dict()
         self.update_params_ = dict()
+        self.weight_decay_op = None
 
     def _add_params(self, params, lr):
         if len(params) > 0:
@@ -64,3 +67,12 @@ class ModelBase(object):
         if self.update_params_.get(name) is None:
             return list()
         return self.update_params_[name]
+    
+    def get_weight_decay(self):
+        if self.weight_decay_op is None:
+            wd_list = list()
+            for param in self.params:
+                param_name = param.name.split(':', 1)[0]
+                wd_list.append(tf.reduce_sum(tf.square(param), name='wd/'+param_name))
+            self.weight_decay_op = tf.add_n(wd_list, name='wd_loss')
+        return self.weight_decay_op
