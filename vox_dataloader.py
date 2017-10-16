@@ -57,15 +57,26 @@ class VoxDataLoader(object):
     def _load_batch(self, blobs, blob_names, batchids):
         full_name = self.full_name
         part_name = self.part_name
+        blob_name = blob_names[0]
         root = osp.join(self.folder, str(self.vox_size))
         for i, index in enumerate(batchids):
             label = self.labels[index]
             name = self.names[index]
             path = osp.join(root, self.classes[label], self.phase, name)
             mat = io.loadmat(path, variable_names=(full_name, part_name))
-            full_vox = mat[full_name].transpose(2,1,0).astype(DTYPE)
-            part_vox = mat[part_name].transpose(2,1,0).astype(DTYPE)
+            full_vox = mat[full_name]
+            part_vox = mat[part_name]
+            vis_idx = part_vox != -1
+            # force the visible parts to be consistent
+            part_vox[vis_idx] = full_vox[vis_idx]
+            full_vox = full_vox.transpose(2,1,0).astype(DTYPE)
+            part_vox = part_vox.transpose(2,1,0).astype(DTYPE)
             part_vox[part_vox == -1] = DTYPE(0.5)
+            if self.transformer is not None:
+                all_vox = np.stack([full_vox, part_vox], axis=-1)
+                all_vox = self.transformer.process(blob_name, all_vox)
+                full_vox = all_vox[:,:,:,0]
+                part_vox = all_vox[:,:,:,1]
             blobs[0][i,:,:,:,0] = full_vox
             blobs[1][i,:,:,:,0] = part_vox
             blobs[2][i] = DTYPE(label)
@@ -102,7 +113,7 @@ class VoxDataLoaderPrefetch(VoxDataLoader):
         self.data_shape_ = dict()
         self.worker_processes = list()
 
-    def add_prefetch_process(self, blob_name, data_shape, nproc=1):
+    def add_prefetch_process(self, blob_name, data_shape, nproc=1, seeds=None):
         batchsize = data_shape[0]
         if self.batchids_process is None:
             self._init_batchids_process(batchsize)
@@ -111,11 +122,15 @@ class VoxDataLoaderPrefetch(VoxDataLoader):
         data_queue = Queue(self.data_queue_size)
         self.data_queue_[blob_name] = data_queue
         for i in xrange(nproc):
+            if type(seeds) is list:
+                seed = seeds[i]
+            else:
+                seed = None
             wp = Process(target=self.__class__._worker_process,
                     args=(blob_name, data_shape, data_queue, self.batchids_queue,
                         self.folder, self.vox_size, self.classes, self.phase,
                         self.names, self.labels, self.full_name, self.part_name,
-                        self.transformer))
+                        self.transformer, seed))
             wp.start()
             self.worker_processes.append(wp)
 
@@ -137,7 +152,9 @@ class VoxDataLoaderPrefetch(VoxDataLoader):
 
     @classmethod
     def _worker_process(cls, blob_name, data_shape, data_queue, batchids_queue,
-            folder, vox_size, classes, phase, names, labels, full_name, part_name, transformer):
+            folder, vox_size, classes, phase, names, labels, full_name, part_name, transformer, seed):
+        # independent seed
+        transformer.rand = np.random.RandomState(seed)
         prefetch_data_full = np.zeros(data_shape, dtype=DTYPE)
         prefetch_data_part = np.zeros(data_shape, dtype=DTYPE)
         prefetch_labels = np.zeros(data_shape[0], dtype=DTYPE)
@@ -149,9 +166,22 @@ class VoxDataLoaderPrefetch(VoxDataLoader):
                 name = names[index]
                 path = osp.join(root, classes[label], phase, name)
                 mat = io.loadmat(path, variable_names=(full_name, part_name))
-                full_vox = mat[full_name].transpose(2,1,0).astype(DTYPE)
-                part_vox = mat[part_name].transpose(2,1,0).astype(DTYPE)
-                part_vox[part_vox==-1] = DTYPE(0.5)
+                full_vox = mat[full_name]
+                part_vox = mat[part_name]
+                vis_idx = part_vox != -1
+                # force the visible parts to be consistent
+                part_vox[vis_idx] = full_vox[vis_idx]
+                full_vox = full_vox.transpose(2,1,0).astype(DTYPE)
+                part_vox = part_vox.transpose(2,1,0).astype(DTYPE)
+                part_vox[part_vox == -1] = DTYPE(0.5)
+                if transformer is not None:
+                    all_vox = np.stack([full_vox, part_vox], axis=-1)
+                    all_vox = transformer.process(blob_name, all_vox)
+                    full_vox = all_vox[:,:,:,0]
+                    part_vox = all_vox[:,:,:,1]
+                #full_vox = mat[full_name].transpose(2,1,0).astype(DTYPE)
+                #part_vox = mat[part_name].transpose(2,1,0).astype(DTYPE)
+                #part_vox[part_vox==-1] = DTYPE(0.5)
                 prefetch_data_full[i,:,:,:,0] = full_vox
                 prefetch_data_part[i,:,:,:,0] = part_vox
                 prefetch_labels[i] = DTYPE(label)

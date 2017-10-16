@@ -69,7 +69,7 @@ class ImageDataLoaderPrefetch(ImageDataLoader):
         self.data_shape_ = dict()
         self.worker_processes = list()
 
-    def add_prefetch_process(self, blob_name, data_shape, nproc=1):
+    def add_prefetch_process(self, blob_name, data_shape, nproc=1, seeds=None):
         batchsize = data_shape[0]
         if self.batchids_process is None:
             self._init_batchids_process(batchsize)
@@ -78,9 +78,13 @@ class ImageDataLoaderPrefetch(ImageDataLoader):
         data_queue = Queue(self.data_queue_size)
         self.data_queue_[blob_name] = data_queue
         for i in xrange(nproc):
+            if type(seeds) is list:
+                seed = seeds[i]
+            else:
+                seed = None
             wp = Process(target=self.__class__._worker_process,
                          args=(blob_name, data_shape, data_queue, self.batchids_queue,
-                               self.folder, self.names, self.transformer))
+                               self.folder, self.names, self.transformer, seed))
             wp.start()
             self.worker_processes.append(wp)
     
@@ -100,7 +104,9 @@ class ImageDataLoaderPrefetch(ImageDataLoader):
         
     @classmethod
     def _worker_process(cls, blob_name, data_shape, data_queue, batchids_queue,
-                        folder, names, transformer):
+                        folder, names, transformer, seed):
+        # independent seed
+        transformer.rand = np.random.RandomState(seed)
         prefetch_data = np.zeros(data_shape, dtype=DTYPE)
         while True:
             batchids = batchids_queue.get()
