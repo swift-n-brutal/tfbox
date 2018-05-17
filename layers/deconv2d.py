@@ -10,6 +10,9 @@ class Deconv2d(Layer):
         self.inputs.append(x)
         with tf.variable_scope(name):
             input_shape = x.get_shape().as_list()
+            if len(filter_shape) == 3:
+                kin = input_shape[-1]
+                filter_shape.append(kin)
             kh, kw, kout, kin = filter_shape
             output_shape = [input_shape[0], 0, 0, kout]
             if pad_size == -1:

@@ -31,6 +31,11 @@ class SpecNormConv2d(LayerUpdateOps):
         # inputs
         self.inputs.append(x)
         with tf.variable_scope(name) as scope:
+            if len(filter_shape) == 3:
+                kin = x.shape.as_list()[-1]
+                kout = filter_shape[-1]
+                filter_shape[-1] = kin
+                filter_shape.append(kout)
             kh, kw, kin, kout = filter_shape
             # padding
             # TODO The default padding size should also consider stride 

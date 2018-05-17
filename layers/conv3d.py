@@ -9,6 +9,11 @@ class Conv3d(Layer):
         super(Conv3d, self).__init__(name)
         self.inputs.append(x)
         with tf.variable_scope(name):
+            if len(filter_shape) == 4:
+                kin = x.shape.as_list()[-1]
+                kout = filter_shape[-1]
+                filter_shape[-1] = kin
+                filter_shape.append(kout)
             kd, kh, kw, kin, kout = filter_shape
             if pad_size == -1:
                 pad_size = (kd - 1)/2
