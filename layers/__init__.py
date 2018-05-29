@@ -8,6 +8,7 @@ from .conv2d import Conv2d
 from .conv3d import Conv3d
 from .deconv2d import Deconv2d
 from .deconv3d import Deconv3d
+from .hingeloss import HingeLoss
 from .innerproduct import InnerProduct
 from .layer import Layer
 from .layerupdateops import LayerUpdateOps
