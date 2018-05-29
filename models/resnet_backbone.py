@@ -17,13 +17,15 @@ class ResNetBackbone(object):
     Attributes
     ----------
     blocks : list of int
-        Number of residual blocks in len(blocks) stages.
+        The numbers of residual blocks in len(blocks) stages.
     chns : list of int
-        Dimension of channel of each group. This should have the same length
-        with that of blocks.
+        The dimension of channel in each stage. This should have the same length
+        with that of 'blocks'.
     strides : list of int
-        Stride size of each group. This should have the same length with that
-        of blocks.
+        The stride size in the begining of each group. This should have the same
+        length with that of 'blocks'.
+    kernel_size : int
+        Size of a convolutional kernel for non-shortcut paths.
     filler : tuple
         This specifies how to initialize weights in weighted layers.
     act_use_bn : bool
@@ -42,6 +44,8 @@ class ResNetBackbone(object):
             bottleneck=False, name='resnet_backbone'):
         self.name = name
         #
+        assert len(chns) == len(blocks)
+        assert len(strides) == len(blocks)
         self.blocks = blocks
         self.chns = chns
         self.strides = strides
