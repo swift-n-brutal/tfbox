@@ -21,15 +21,43 @@ def spec_norm_weight(w, u, niter=1, stop_grad_sigma=True):
     return w_normalized, u, sigma
 
 class SpecNormLinear(LayerUpdateOps):
+    """Spectral Normalized Linear (Fully Connected) Layer
+
+    """
     def __init__(self, x, output_dim, bias=True,
             is_training=True, niter=1, stop_grad_sigma=True,
             name='sn_fc', filler=('msra', 0., 1.), update_collection=None):
+        """__init__ method of SpecNormLinear
+
+        Parameters
+        ----------
+        x : tf.Tensor
+            Input of 4D tensor.
+        output_dim : int
+            Output dimension
+        bias : bool
+            Whether to add bias.
+        is_training : bool
+            If True, compute the max singular value using the power iteration method.
+            Otherwise, use the stored value. 
+        niter : int
+            Number of iterations to compute the max singular value.
+        stop_grad_sigma : bool
+            Whether to treat sigma (the max singular value) as a constant.
+        name : string
+        filler : tuple
+            Initializer for convolutional weight. One of
+            -   ('msra', negative_slope, positive_slope)
+            -   ('gaussian', mean, stdev)
+            -   ('uniform', minval, maxval)
+        update_collection : str or None
+        """
         super(SpecNormLinear, self).__init__(name, update_collection)
         # inputs
         self.inputs.append(x)
         with tf.variable_scope(name) as scope:
-            shape = x.get_shape().as_list()
-            fan_in = np.prod(shape[1:])
+            in_shape = x.shape.as_list()
+            fan_in = np.prod(in_shape[1:])
             x = tf.reshape(x, [-1, fan_in])
             # initializer for weight
             initializer = None

@@ -24,26 +24,74 @@ def spec_norm_weight(w, u, niter=1, stop_grad_sigma=True):
     return w_normalized, u, sigma
 
 class SpecNormConv2d(LayerUpdateOps):
-    def __init__(self, x, filter_shape, bias=True, stride=1, pad_size=0, pad_type='CONSTANT',
+    """Spectral Normalized 2D Convolutional Layer
+
+    """
+    def __init__(self, x, filter_shape, bias=True, stride=1, pad_size=0, pad_mode='CONSTANT',
             is_training=True, niter=1, stop_grad_sigma=True,
             name='sn_conv2d', filler=('msra', 0., 1.), update_collection=None):
+        """__init__ method of SpecNormConv2d
+
+        Parameters
+        ----------
+        x : tf.Tensor
+            Input of 4D tensor.
+        filter_shape : list of int
+            Shape of convolutional filter. [filter_height, filter_width, chn_in]
+            or [filter_height, filter_width, chn_in, chn_out]
+        bias : bool
+            Whether to add bias.
+        stride : int
+            Stride size.
+        pad_size : int
+        pad_mode : str
+            One of 'CONSTANT', 'REFLECT', or 'SYMMETRIC'
+        is_training : bool
+            If True, compute the max singular value using the power iteration method.
+            Otherwise, use the stored value.
+        niter : int
+            Number of iterations to compute the max singular value.
+        stop_grad_sigma : bool
+            Whether to treat sigma (the max singular value) as a constant. 
+        name : string
+        filler : tuple
+            Initializer for convolutional weight. One of
+            -   ('msra', negative_slope, positive_slope)
+            -   ('gaussian', mean, stdev)
+            -   ('uniform', minval, maxval)
+        update_collection : str or None
+        """
         super(SpecNormConv2d, self).__init__(name, update_collection)
         # inputs
         self.inputs.append(x)
+        in_shape = x.shape.as_list()
+        if len(filter_shape) == 3:
+            # get chn_in from input tensor
+            kin = in_shape[-1]
+            kout = filter_shape[-1]
+            filter_shape[-1] = kin
+            filter_shape.append(kout)
+        kh, kw, kin, kout = filter_shape
         with tf.variable_scope(name) as scope:
-            if len(filter_shape) == 3:
-                kin = x.shape.as_list()[-1]
-                kout = filter_shape[-1]
-                filter_shape[-1] = kin
-                filter_shape.append(kout)
-            kh, kw, kin, kout = filter_shape
             # padding
-            # TODO The default padding size should also consider stride 
+            padding = 'VALID'
             if pad_size == -1:
-                pad_size = (kh - 1) / 2
-                x = tf.pad(x, [[0,0], [pad_size, kh-1-pad_size], [pad_size, kh-1-pad_size], [0,0]], pad_type)
+                # 'SAME' padding
+                if pad_mode == 'CONSTANT':
+                    padding = 'SAME'
+                else:
+                    w_in = in_shape[-2]
+                    if w_in % stride == 0:
+                        pad_size_both = max(kw - stride, 0)
+                    else:
+                        pad_size_both = max(kw - (w_in % stride), 0)
+                    if pad_size_both > 0:
+                        pad_size = pad_size_both / 2
+                        x = tf.pad(x, [[0,0], [pad_size, pad_size_both-pad_size],
+                            [pad_size, pad_size_both-pad_size], [0,0]], pad_mode)
             elif pad_size > 0:
-                x = tf.pad(x, [[0,0], [pad_size, pad_size], [pad_size, pad_size], [0,0]], pad_type)
+                # pad_size padding on both sides of each dimension
+                x = tf.pad(x, [[0,0], [pad_size, pad_size], [pad_size, pad_size], [0,0]], pad_mode)
             # initializer for convolutional kernel
             initializer = None
             if filler[0] == 'uniform':
@@ -82,8 +130,8 @@ class SpecNormConv2d(LayerUpdateOps):
             if is_training:
                 self.update_ops_getter = get_update_ops
             # conv2d
-            y = tf.nn.conv2d(x, weight_normalized, [1, stride, stride, 1], padding='VALID')
-
+            y = tf.nn.conv2d(x, weight_normalized, [1, stride, stride, 1], padding=padding)
+            # add channel-wise bias
             if bias:
                 b = tf.get_variable('bias', shape=kout, dtype=TF_DTYPE, initializer=tf.constant_initializer(0.))
                 self.params.append(b)
