@@ -2,30 +2,31 @@ import tensorflow as tf
 import numpy as np
 from ..config import NP_DTYPE, TF_DTYPE, LAYERS_VERBOSE
 from .layerupdateops import LayerUpdateOps
+from .specnormconv2d import spec_norm_weight
 
-def _l2normalize(v, eps=1e-12):
-    return v / (tf.norm(v, ord=2) + eps)
+#def _l2normalize(v, eps=1e-12):
+#    return v / (tf.norm(v, ord=2) + eps)
 
-def spec_norm_weight(w, u, niter=1, stop_grad_sigma=True):
-    #
-    in_dim, out_dim = w.shape.as_list()
-    #
-    for i in xrange(niter):
-        v = _l2normalize(tf.matmul(u, tf.transpose(w)))
-        vw = tf.matmul(v, w) # v * w
-        u = _l2normalize(vw)
-    sigma = tf.matmul(vw, tf.transpose(u))[0,0]
-    if stop_grad_sigma:
-        sigma = tf.stop_gradient(sigma)
-    w_normalized = w / sigma
-    return w_normalized, u, sigma
+#def spec_norm_weight(w, u, niter=1, stop_grad_sigma=True):
+#    #
+#    in_dim, out_dim = w.shape.as_list()
+#    #
+#    for i in xrange(niter):
+#        v = _l2normalize(tf.matmul(u, tf.transpose(w)))
+#        vw = tf.matmul(v, w) # v * w
+#        u = _l2normalize(vw)
+#    sigma = tf.matmul(vw, tf.transpose(u))[0,0]
+#    if stop_grad_sigma:
+#        sigma = tf.stop_gradient(sigma)
+#    w_normalized = w / sigma
+#    return w_normalized, u, sigma
 
 class SpecNormLinear(LayerUpdateOps):
     """Spectral Normalized Linear (Fully Connected) Layer
 
     """
     def __init__(self, x, output_dim, bias=True,
-            is_training=True, niter=1, stop_grad_sigma=True,
+            is_training=True, niter=1, stop_grad_sigma=False,
             name='sn_fc', filler=('msra', 0., 1.), update_collection=None):
         """__init__ method of SpecNormLinear
 
