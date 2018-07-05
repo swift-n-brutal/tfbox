@@ -95,19 +95,21 @@ class Model(object):
         if path[-4:] != '.npz':
             path += '.npz'
         with np.load(path) as fd:
-            param_dict = fd['params']
-            update_param_dict = fd['update_params']
+            param_dict = fd['params'][()]
+            update_param_dict = fd['update_params'][()]
             for layer in self.layers:
                 name = layer.name
                 params = param_dict.get(name)
                 if params:
                     assert len(params) == len(layer.params)
                     for (p_src, p_tgt) in zip(params, layer.params):
-                        assert p_src.shape == p_tgt.shape.as_list()
+                        assert list(p_src.shape) == p_tgt.shape.as_list(), \
+                                '{} {} {}'.format(name, p_src.shape, p_tgt)
                         sess.run(p_tgt.assign(p_src))
                 update_params = update_param_dict.get(name)
                 if update_params:
                     assert len(update_params) == len(layer.update_params)
                     for (up_src, up_tgt) in zip(update_params, layer.update_params):
-                        assert up_src.shape == up_tgt.shape.as_list()
+                        assert list(up_src.shape) == up_tgt.shape.as_list(), \
+                                '{} {} {}'.format(name, up_src.shape, up_tgt)
                         sess.run(up_tgt.assign(up_src))
