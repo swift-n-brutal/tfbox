@@ -8,6 +8,7 @@ from .conv2d import Conv2d
 from .conv3d import Conv3d
 from .deconv2d import Deconv2d
 from .deconv3d import Deconv3d
+from .gram2vec import Gram2Vec
 from .hingeloss import HingeLoss
 from .innerproduct import InnerProduct
 from .layer import Layer
@@ -17,8 +18,10 @@ from .lploss import LpLoss
 from .nnupsample import NNUpsample
 from .pool3d import Pool3d
 from .pool import Pool
+from .power import Power
 from .reshape import Reshape
 from .softmaxloss import SoftmaxLoss
 from .specnormconv2d import SpecNormConv2d
 from .specnormlinear import SpecNormLinear
 from .sumloss import SumLoss
+from .vec2gram import Vec2Gram
