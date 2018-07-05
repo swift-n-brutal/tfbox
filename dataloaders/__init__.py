@@ -1,3 +1,5 @@
+from .dataloader import DataLoader
+
 # CifarDataLoader depends on pycaffe.
 # Currently it is removed from tfbox.
 #from .cifar_dataloader import CifarDataLoader
